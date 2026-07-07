@@ -64,11 +64,6 @@ Si `python` no esta en el PATH, usa el Python de tu entorno o Anaconda.
 5. Pulsa **Deploy**.
 6. Copia la URL generada y pegala en la entrega como "Link to the online app".
 
-## Entrega sugerida
-
-- Link online app: pega aqui la URL de Streamlit Cloud.
-- Source code: link al repositorio de GitHub.
-- Video demo: se ha generado un MP4 en `artifacts/demo_valenbisi_pulse.mp4`. Subelo a Drive, YouTube oculto o la plataforma indicada por la asignatura y pega ese link.
 
 ## Estructura
 
