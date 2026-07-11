@@ -4,16 +4,17 @@ import json
 import math
 import urllib.error
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
-
+from sklearn.cluster import KMeans
 
 CITYBIKES_URL = "https://api.citybik.es/v2/networks/valenbisi"
 VALENCIA_CENTER = (39.4699075, -0.3762881)
 FALLBACK_PATH = Path(__file__).resolve().parents[1] / "data" / "sample_valenbisi.csv"
+CRITICAL_STATUSES = frozenset({"Sin bicis", "Sin anclajes", "Critica mixta", "Revisar"})
 
 
 def _to_int(value: object, default: int = 0) -> int:
@@ -109,7 +110,9 @@ def enrich_station_frame(df: pd.DataFrame) -> pd.DataFrame:
     ]
     for column in required:
         if column not in df.columns:
-            df[column] = "" if column in {"station_id", "uid", "name", "address", "last_updated", "timestamp"} else 0
+            df[column] = (
+                "" if column in {"station_id", "uid", "name", "address", "last_updated", "timestamp"} else 0
+            )
 
     df["name"] = df["name"].map(clean_station_name)
     df["address"] = df["address"].map(repair_text)
@@ -220,34 +223,17 @@ def project_latlon(
     return np.column_stack([x, y])
 
 
-def simple_kmeans(points: np.ndarray, n_clusters: int, max_iter: int = 80) -> np.ndarray:
-    points = np.asarray(points, dtype=float)
-    if len(points) == 0:
-        return np.array([], dtype=int)
-    k = int(max(1, min(n_clusters, len(points))))
-
-    order = np.argsort(points[:, 0] * 0.65 + points[:, 1] * 0.35)
-    initial_positions = np.linspace(0, len(points) - 1, k).astype(int)
-    centers = points[order[initial_positions]].copy()
-    labels = np.zeros(len(points), dtype=int)
-
-    for _ in range(max_iter):
-        distances = ((points[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2)
-        new_labels = distances.argmin(axis=1)
-        if np.array_equal(labels, new_labels):
-            break
-        labels = new_labels
-        for cluster in range(k):
-            mask = labels == cluster
-            if mask.any():
-                centers[cluster] = points[mask].mean(axis=0)
-    return labels
-
-
 def assign_zones(df: pd.DataFrame, n_clusters: int = 7) -> pd.DataFrame:
     clustered = df.copy()
+    if clustered.empty:
+        clustered["zone_id"] = pd.Series(dtype="int64")
+        clustered["zone"] = pd.Series(dtype="object")
+        return clustered
+
     points = project_latlon(clustered["latitude"], clustered["longitude"], VALENCIA_CENTER)
-    clustered["zone_id"] = simple_kmeans(points, n_clusters) + 1
+    cluster_count = int(max(1, min(n_clusters, len(clustered))))
+    model = KMeans(n_clusters=cluster_count, n_init=10, random_state=42)
+    clustered["zone_id"] = model.fit_predict(points) + 1
     clustered["zone"] = "Zona " + clustered["zone_id"].astype(str)
     return clustered
 
@@ -270,9 +256,13 @@ def summarize_zones(df: pd.DataFrame) -> pd.DataFrame:
     grouped["bike_ratio"] = (grouped["free_bikes"] / safe_capacity).fillna(0)
     grouped["dock_ratio"] = (grouped["empty_slots"] / safe_capacity).fillna(0)
     grouped["imbalance"] = ((grouped["bike_ratio"] - 0.5).abs() * 2).clip(0, 1)
-    grouped["critical_stations"] = df.groupby("zone_id")["status"].apply(
-        lambda s: int((s != "Equilibrada").sum())
-    ).values
+    critical_by_zone = (
+        df.assign(is_critical=df["status"].isin(CRITICAL_STATUSES))
+        .groupby("zone_id")["is_critical"]
+        .sum()
+        .astype(int)
+    )
+    grouped["critical_stations"] = grouped["zone_id"].map(critical_by_zone).fillna(0).astype(int)
     grouped["suggested_action"] = np.select(
         [
             grouped["bike_ratio"] <= 0.20,
@@ -289,7 +279,9 @@ def summarize_zones(df: pd.DataFrame) -> pd.DataFrame:
     grouped["priority_score"] = grouped["priority_score"].round(1)
     grouped["bike_ratio"] = grouped["bike_ratio"].round(3)
     grouped["dock_ratio"] = grouped["dock_ratio"].round(3)
-    return grouped.sort_values(["priority_score", "critical_stations"], ascending=False).reset_index(drop=True)
+    return grouped.sort_values(["priority_score", "critical_stations"], ascending=False).reset_index(
+        drop=True
+    )
 
 
 def haversine_km(lat1: float, lon1: float, lat2: Iterable[float], lon2: Iterable[float]) -> np.ndarray:
@@ -339,9 +331,7 @@ def recommend_rebalancing(
     data["target_bikes"] = (data["capacity"] * target_ratio).round().astype(int)
 
     sources = data[
-        (data["free_bikes"] > data["target_bikes"])
-        & (data["dock_ratio"] <= 0.20)
-        & (data["free_bikes"] >= 3)
+        (data["free_bikes"] > data["target_bikes"]) & (data["dock_ratio"] <= 0.20) & (data["free_bikes"] >= 3)
     ].copy()
     destinations = data[
         (data["free_bikes"] < data["target_bikes"])
@@ -350,9 +340,17 @@ def recommend_rebalancing(
     ].copy()
 
     sources["movable"] = (sources["free_bikes"] - sources["target_bikes"]).clip(lower=0).astype(int)
-    destinations["needed"] = (destinations["target_bikes"] - destinations["free_bikes"]).clip(lower=0).astype(int)
-    sources = sources[sources["movable"] > 0].sort_values("priority_score", ascending=False).reset_index(drop=True)
-    destinations = destinations[destinations["needed"] > 0].sort_values("priority_score", ascending=False).reset_index(drop=True)
+    destinations["needed"] = (
+        (destinations["target_bikes"] - destinations["free_bikes"]).clip(lower=0).astype(int)
+    )
+    sources = (
+        sources[sources["movable"] > 0].sort_values("priority_score", ascending=False).reset_index(drop=True)
+    )
+    destinations = (
+        destinations[destinations["needed"] > 0]
+        .sort_values("priority_score", ascending=False)
+        .reset_index(drop=True)
+    )
 
     columns = [
         "origin",

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.valenbisi import (
+    CRITICAL_STATUSES,
     VALENCIA_CENTER,
     assign_zones,
     classify_station_status,
@@ -16,12 +17,11 @@ from src.valenbisi import (
     summarize_zones,
 )
 
-
 st.set_page_config(
     page_title="Valenbisi Pulse",
     page_icon="V",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 
@@ -57,7 +57,9 @@ st.markdown(
 
 
 @st.cache_data(ttl=180)
-def get_data(prefer_live: bool, min_units: int, min_ratio: float, n_clusters: int) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+def get_data(
+    prefer_live: bool, min_units: int, min_ratio: float, n_clusters: int
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     stations, source = load_valenbisi_data(prefer_live=prefer_live)
     stations = classify_station_status(stations, min_units=min_units, min_ratio=min_ratio)
     stations = assign_zones(stations, n_clusters=n_clusters)
@@ -152,18 +154,27 @@ with st.sidebar:
     st.header("Parametros")
     prefer_live = st.toggle("Usar datos en vivo", value=True)
     min_units = st.slider("Minimo operativo de bicis/anclajes", min_value=0, max_value=6, value=2)
-    min_ratio = st.slider("Umbral critico por capacidad", min_value=0.05, max_value=0.30, value=0.10, step=0.01)
+    min_ratio = st.slider(
+        "Umbral critico por capacidad", min_value=0.05, max_value=0.30, value=0.10, step=0.01
+    )
     n_clusters = st.slider("Zonas urbanas estimadas", min_value=4, max_value=12, value=7)
-    max_distance = st.slider("Distancia maxima para redistribuir", min_value=0.5, max_value=5.0, value=2.5, step=0.25)
-    target_ratio = st.slider("Ratio objetivo de bicicletas", min_value=0.35, max_value=0.65, value=0.50, step=0.05)
+    max_distance = st.slider(
+        "Distancia maxima para redistribuir", min_value=0.5, max_value=5.0, value=2.5, step=0.25
+    )
+    target_ratio = st.slider(
+        "Ratio objetivo de bicicletas", min_value=0.35, max_value=0.65, value=0.50, step=0.05
+    )
     st.markdown(
-        '<p class="small-note">Los parametros permiten simular politicas municipales mas estrictas o mas flexibles.</p>',
+        (
+            '<p class="small-note">Los parametros permiten simular politicas municipales '
+            "mas estrictas o mas flexibles.</p>"
+        ),
         unsafe_allow_html=True,
     )
 
 
 stations, zones, source = get_data(prefer_live, min_units, min_ratio, n_clusters)
-critical = stations[stations["status"].isin(["Sin bicis", "Sin anclajes", "Critica mixta", "Revisar"])]
+critical = stations[stations["status"].isin(CRITICAL_STATUSES)]
 counts = status_counts(stations)
 
 total_bikes = int(stations["free_bikes"].sum())
@@ -171,16 +182,17 @@ total_docks = int(stations["empty_slots"].sum())
 total_capacity = int(stations["capacity"].sum())
 global_ratio = total_bikes / total_capacity if total_capacity else 0
 
-metric_cols = st.columns(5)
-metric_cols[0].metric("Estaciones", f"{len(stations):,}".replace(",", "."))
-metric_cols[1].metric("Bicis disponibles", f"{total_bikes:,}".replace(",", "."))
-metric_cols[2].metric("Anclajes libres", f"{total_docks:,}".replace(",", "."))
-metric_cols[3].metric("Estaciones criticas", f"{len(critical):,}".replace(",", "."))
-metric_cols[4].metric("Ocupacion global", format_ratio(global_ratio))
+network_cols = st.columns(3)
+network_cols[0].metric("Estaciones", f"{len(stations):,}".replace(",", "."))
+network_cols[1].metric("Bicis disponibles", f"{total_bikes:,}".replace(",", "."))
+network_cols[2].metric("Anclajes libres", f"{total_docks:,}".replace(",", "."))
 
-st.markdown(
-    f'<p class="small-note">Fuente: {source}. La clasificacion se recalcula al cambiar los umbrales del panel lateral.</p>',
-    unsafe_allow_html=True,
+status_cols = st.columns(2)
+status_cols[0].metric("Estaciones criticas", f"{len(critical):,}".replace(",", "."))
+status_cols[1].metric("Ocupacion global", format_ratio(global_ratio))
+
+st.caption(
+    f"Fuente: {source}. La clasificacion se recalcula al cambiar los umbrales del panel lateral."
 )
 
 tabs = st.tabs(["Mapa operativo", "Zonas prioritarias", "Redistribucion", "Buscador", "Metodologia"])
@@ -278,30 +290,35 @@ with tabs[3]:
         mode_label = st.radio("Necesidad", ["Coger bici", "Devolver bici"], horizontal=True)
     mode = "return" if mode_label == "Devolver bici" else "take"
     nearest = nearest_stations(stations, latitude, longitude, mode=mode, min_available=1, top_n=10)
-    nearest_view = nearest[
-        ["name", "address", "free_bikes", "empty_slots", "distance_km", "status"]
-    ].rename(
-        columns={
-            "name": "Estacion",
-            "address": "Direccion",
-            "free_bikes": "Bicis",
-            "empty_slots": "Anclajes",
-            "distance_km": "Distancia km",
-            "status": "Estado",
-        }
-    )
-    st.dataframe(nearest_view, hide_index=True, use_container_width=True)
-    st.plotly_chart(station_map(nearest, "Estaciones cercanas disponibles"), use_container_width=True)
+    if nearest.empty:
+        st.warning("No hay estaciones disponibles con los filtros actuales.")
+    else:
+        nearest_view = nearest[
+            ["name", "address", "free_bikes", "empty_slots", "distance_km", "status"]
+        ].rename(
+            columns={
+                "name": "Estacion",
+                "address": "Direccion",
+                "free_bikes": "Bicis",
+                "empty_slots": "Anclajes",
+                "distance_km": "Distancia km",
+                "status": "Estado",
+            }
+        )
+        st.dataframe(nearest_view, hide_index=True, use_container_width=True)
+        st.plotly_chart(station_map(nearest, "Estaciones cercanas disponibles"), use_container_width=True)
 
 with tabs[4]:
     st.subheader("Metodologia de Data Science")
     st.markdown(
         """
-        **Problema urbano.** La disponibilidad de bicicletas compartidas no depende solo del total de bicicletas:
-        una estacion puede estar llena y no aceptar devoluciones, o vacia y no permitir iniciar viajes.
+        **Problema urbano.** La disponibilidad de bicicletas compartidas no depende solo del total de
+        bicicletas: una estacion puede estar llena y no aceptar devoluciones, o vacia y no permitir
+        iniciar viajes.
 
         **Datos.** Se usa la API abierta de CityBikes para Valenbisi, alimentada por JCDecaux Open Data.
-        Cada estacion aporta coordenadas, capacidad, bicicletas disponibles, anclajes libres y estado operativo.
+        Cada estacion aporta coordenadas, capacidad, bicicletas disponibles, anclajes libres y estado
+        operativo.
 
         **Transformacion.** La aplicacion normaliza textos, calcula capacidad real, ratios de ocupacion,
         desequilibrio y etiquetas operativas segun umbrales configurables.

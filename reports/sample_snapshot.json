@@ -1,0 +1,11 @@
+{
+  "data_source": "muestra local incluida en data/sample_valenbisi.csv",
+  "stations": 30,
+  "total_capacity": 624,
+  "available_bikes": 226,
+  "free_docks": 361,
+  "critical_stations": 21,
+  "estimated_zones": 7,
+  "recommended_movements": 8,
+  "scope": "Muestra local determinista; los valores en vivo cambian con cada consulta a la API."
+}

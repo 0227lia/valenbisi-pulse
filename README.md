@@ -1,82 +1,116 @@
 # Valenbisi Pulse
 
-Aplicacion interactiva de Data Science para diagnosticar y mejorar la disponibilidad de Valenbisi en Valencia.
+[![CI](https://github.com/0227lia/valenbisi-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/0227lia/valenbisi-pulse/actions/workflows/ci.yml)
 
-## Problema urbano
+Dashboard operativo para analizar la disponibilidad de bicicletas y anclajes de Valenbisi, detectar estaciones críticas y proponer movimientos de redistribución revisables.
 
-En los sistemas de bicicleta compartida no basta con tener muchas bicicletas en total. Si una estacion esta vacia, nadie puede iniciar viaje. Si esta llena, nadie puede devolver la bici. Esto genera frustracion, recorridos innecesarios y peor uso del espacio publico.
+![Dashboard de Valenbisi Pulse](docs/dashboard.png)
 
-Valenbisi Pulse ayuda a responder tres preguntas:
+## Problema
 
-1. Que estaciones estan ahora mismo en situacion critica?
-2. Que zonas urbanas concentran desequilibrios?
-3. Que movimientos de redistribucion deberia priorizar un operador municipal?
+El total de bicicletas de una red no describe por sí solo la calidad del servicio. Una estación vacía impide iniciar un viaje y una estación llena impide devolver la bicicleta. La aplicación organiza la información de la red para responder:
 
-## Datos abiertos
+1. ¿Qué estaciones necesitan atención ahora?
+2. ¿Qué zonas concentran mayor desequilibrio?
+3. ¿Qué traslados cortos podrían mejorar la disponibilidad?
 
-La app usa la API abierta de CityBikes para la red `valenbisi`, alimentada por datos abiertos de JCDecaux:
+## Tecnologías
 
-- API: https://api.citybik.es/v2/networks/valenbisi
-- Licencia indicada por la API: JCDecaux Open Licence
+- Python, pandas y NumPy para preparación y métricas.
+- scikit-learn para clustering geoespacial reproducible.
+- Streamlit y Plotly para la aplicación interactiva.
+- pytest y Ruff para validación automática.
+- GitHub Actions para integración continua.
 
-Tambien se incluye una muestra local en `data/sample_valenbisi.csv` para que la app siga funcionando si la API no responde durante la demo.
+## Flujo
 
-## Metodologia DS
+```text
+CityBikes API ─┐
+               ├─> limpieza -> features -> estado y prioridad -> dashboard
+muestra local ─┘                         ├─> clustering de zonas
+                                        └─> plan de redistribución
+```
 
-La aplicacion aplica un pipeline reproducible:
+La API abierta de CityBikes para `valenbisi` se usa como fuente principal. La muestra incluida en `data/` permite ejecutar la aplicación y los tests sin depender de la red.
 
-1. **Ingestion de datos**: descarga estaciones, coordenadas, bicicletas disponibles, anclajes libres y capacidad.
-2. **Limpieza**: normaliza nombres, direcciones, tipos numericos y capacidad real.
-3. **Feature engineering**:
-   - ratio de bicicletas disponibles
-   - ratio de anclajes libres
-   - indice de desequilibrio
-   - estado operativo de la estacion
-4. **Clasificacion de riesgo**: etiqueta estaciones como equilibradas, sin bicis, sin anclajes, critica mixta o a revisar.
-5. **Clustering geoespacial**: agrupa estaciones en zonas urbanas usando k-means implementado con NumPy sobre coordenadas proyectadas.
-6. **Scoring multicriterio**: calcula una prioridad de 0 a 100 combinando criticidad, desequilibrio y capacidad.
-7. **Recomendacion de redistribucion**: propone traslados desde estaciones con exceso de bicis hacia estaciones con deficit, limitando distancia maxima.
-
-## Funcionalidades
-
-- Mapa interactivo de estaciones por estado.
-- Tabla de estaciones prioritarias.
-- Clustering de zonas urbanas con accion sugerida.
-- Plan descargable de redistribucion en CSV.
-- Buscador de estaciones cercanas para coger o devolver una bici.
-- Parametros ajustables para simular politicas municipales.
-
-## Ejecutar en local
+## Instalación
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+```
+
+En Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+En macOS o Linux:
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+## Ejecución
+
+```bash
 streamlit run app.py
 ```
 
-Si `python` no esta en el PATH, usa el Python de tu entorno o Anaconda.
+La barra lateral permite cambiar umbrales operativos, número de zonas, distancia máxima y ratio objetivo. Los resultados se recalculan con cada configuración.
 
-## Despliegue en Streamlit Community Cloud
+## Resultados reproducibles
 
-1. Crea un repositorio en GitHub y sube estos archivos.
-2. Entra en https://streamlit.io/cloud.
-3. Selecciona **New app**.
-4. Elige tu repositorio, rama principal y `app.py` como archivo de entrada.
-5. Pulsa **Deploy**.
-6. Copia la URL generada y pegala en la entrega como "Link to the online app".
+Para generar un informe sobre la muestra local:
 
+```bash
+python scripts/generate_sample_report.py
+```
+
+Se crean:
+
+- `reports/sample_snapshot.json`
+- `reports/sample_zone_summary.csv`
+- `reports/sample_rebalancing.csv`
+
+Las cifras en vivo varían porque representan el estado de la red en el momento de la consulta.
+
+Con los umbrales por defecto, la muestra reproducible incluida contiene 30 estaciones y 624 plazas. En esa muestra se detectan 21 estaciones críticas y se proponen 8 movimientos candidatos. Estas cifras sirven para validar el pipeline y no describen el estado actual de Valenbisi.
+
+## Tests
+
+```bash
+python -m pip install -r requirements-dev.txt
+ruff check .
+pytest
+```
 
 ## Estructura
 
 ```text
 .
+├── .github/workflows/ci.yml
 ├── app.py
-├── requirements.txt
-├── data/
-│   └── sample_valenbisi.csv
+├── data/sample_valenbisi.csv
 ├── docs/
-│   └── video_script.md
-├── artifacts/
-│   └── demo_valenbisi_pulse.mp4
-└── src/
-    └── valenbisi.py
+├── reports/
+├── scripts/generate_sample_report.py
+├── src/valenbisi.py
+└── tests/test_valenbisi.py
 ```
+
+## Metodología y limitaciones
+
+El score y la redistribución son heurísticas transparentes de apoyo al análisis. No estiman demanda futura ni sustituyen rutas operativas optimizadas. La metodología, supuestos y limitaciones están detallados en [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+
+## Datos y licencia
+
+- Fuente: [CityBikes API](https://api.citybik.es/v2/networks/valenbisi).
+- Proveedor indicado por la API: JCDecaux Open Data.
+- Código del proyecto: licencia MIT.
+
+## Autor
+
+Desarrollado por [0227lia](https://github.com/0227lia) como proyecto de portfolio de Ciencia de Datos.
