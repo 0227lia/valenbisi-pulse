@@ -1,0 +1,9 @@
+origin,destination,distance_km,bikes_to_move,origin_free_bikes,destination_free_bikes,destination_empty_slots,impact
+Campillo Alto Buey,Avenida De Los Naranjos,1.0,1,9,0,32,1 bicis -> Avenida De Los Naranjos
+Vicente Vidal,Avenida De Los Naranjos,2.07,9,19,0,32,9 bicis -> Avenida De Los Naranjos
+Avenida Constitucion,Avenida Blasco Ibanez,1.87,6,16,0,30,6 bicis -> Avenida Blasco Ibanez
+Avenida Amado Granell,Avenida Blasco Ibanez,2.4,8,18,0,30,8 bicis -> Avenida Blasco Ibanez
+Avenida Peris Y Valero,Hospital Nueva Fe,1.48,9,19,0,30,9 bicis -> Hospital Nueva Fe
+Calle Juan Xxiii,Avenida Blasco Ibanez 3,2.5,7,15,1,39,7 bicis -> Avenida Blasco Ibanez 3
+Avenida Campanar,Avenida Pio Xii,0.8,8,18,2,18,8 bicis -> Avenida Pio Xii
+Conde Torrefiel,Calle Aitana,1.61,6,14,2,14,6 bicis -> Calle Aitana
