@@ -1,0 +1,3 @@
+scenario,direction,shock_ratio,core_radius_km,bikes_shifted,baseline_critical_stations,scenario_critical_stations,newly_critical_stations,resolved_critical_stations
+Flujo hacia el centro,to_core,0.15,2.0,15,21,15,0,6
+Flujo desde el centro,from_core,0.15,2.0,9,21,17,0,4

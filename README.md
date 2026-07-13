@@ -2,36 +2,70 @@
 
 [![CI](https://github.com/0227lia/valenbisi-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/0227lia/valenbisi-pulse/actions/workflows/ci.yml)
 
-Dashboard operativo para analizar la disponibilidad de bicicletas y anclajes de Valenbisi, detectar estaciones críticas y proponer movimientos de redistribución revisables.
+Centro de control reproducible para analizar un snapshot de Valenbisi: calidad de datos, riesgo por estación y vecindario, redistribución de coste mínimo y pruebas de estrés conservativas.
 
-![Dashboard de Valenbisi Pulse](docs/dashboard.png)
+![Panel de operaciones](reports/figures/operations_decision_dashboard.png)
 
 ## Problema
 
-El total de bicicletas de una red no describe por sí solo la calidad del servicio. Una estación vacía impide iniciar un viaje y una estación llena impide devolver la bicicleta. La aplicación organiza la información de la red para responder:
+El total de bicicletas no describe por sí solo la calidad del servicio. Una estación vacía bloquea el inicio de viaje; una llena bloquea la devolución. El proyecto trabaja sobre un **snapshot**, no sobre un histórico, y responde:
 
-1. ¿Qué estaciones necesitan atención ahora?
-2. ¿Qué zonas concentran mayor desequilibrio?
-3. ¿Qué traslados cortos podrían mejorar la disponibilidad?
+1. ¿Qué estaciones requieren revisión inmediata y por qué?
+2. ¿Qué zonas analíticas concentran riesgo operativo y presión local?
+3. ¿Qué movimientos de bicicletas cubren más déficit dentro de una distancia máxima explícita?
+4. ¿Cómo cambia el equilibrio si se simula un flujo entre periferia y centro?
 
-## Tecnologías
+No presenta predicciones de demanda ni rutas operativas reales. Cada salida documenta ese límite.
 
-- Python, pandas y NumPy para preparación y métricas.
-- scikit-learn para clustering geoespacial reproducible.
-- Streamlit y Plotly para la aplicación interactiva.
-- pytest y Ruff para validación automática.
-- GitHub Actions para integración continua.
+## Resultados de la muestra reproducible
 
-## Flujo
+Estos valores se generan desde `data/sample_valenbisi.csv`; no representan el estado actual de la red:
+
+- 30 estaciones, 624 plazas declaradas y 226 bicicletas disponibles.
+- 21 estaciones críticas con los umbrales base de la muestra.
+- 7 orígenes y 14 destinos elegibles para redistribución; 49 arcos quedan dentro de 2,5 km.
+- El solver de transporte mínimo asigna 53 de 152 bicicletas de necesidad modelada (34,9%) con 91,28 bici-km de distancia geodésica acumulada.
+- Las dos pruebas de estrés conservan bicicletas dentro de la red y se etiquetan como simulación, no como pronóstico.
+
+![Scorecard de riesgo](reports/figures/risk_scorecard.png)
+
+## Arquitectura
 
 ```text
-CityBikes API ─┐
-               ├─> limpieza -> features -> estado y prioridad -> dashboard
-muestra local ─┘                         ├─> clustering de zonas
-                                        └─> plan de redistribución
+CityBikes API o muestra versionada
+            |
+Limpieza, consistencia y controles de calidad
+            |
+Clasificación de estado + riesgo local k-NN
+            |
+KMeans de zonas analíticas + diagnóstico de exposición
+            |
+LP de transporte con necesidad no cubierta penalizada
+            |
+Escenarios conservativos centro <-> periferia
+            |
+Dashboard Streamlit, CSV, JSON y figuras reproducibles
 ```
 
-La API abierta de CityBikes para `valenbisi` se usa como fuente principal. La muestra incluida en `data/` permite ejecutar la aplicación y los tests sin depender de la red.
+## Métodos
+
+| Componente | Implementación | Salida |
+|---|---|---|
+| Calidad | Duplicados, coordenadas, capacidad, inventario y operación | Tabla de controles auditables. |
+| Riesgo | Estado actual, desequilibrio, presión k-NN e aislamiento | Score de snapshot de 0 a 100. |
+| Zonas | `KMeans` reproducible sobre coordenadas locales | Riesgo y proporción crítica agregados. |
+| Redistribución | Problema lineal de transporte con `scipy.optimize.linprog` | Plan de coste mínimo y necesidad no cubierta. |
+| Estrés | Flujo determinista que conserva bicicletas | Cambio de estados bajo escenarios declarados. |
+
+La [metodología](docs/METHODOLOGY.md) incluye fórmulas, restricciones y límites; la [tarjeta de decisión](docs/DECISION_MODEL.md) delimita el uso correcto.
+
+## Dashboard interactivo
+
+```bash
+streamlit run app.py
+```
+
+El panel comienza con la muestra local para que sea reproducible. Se puede activar la consulta de CityBikes desde la barra lateral; los resultados de una consulta en vivo son volátiles y no se guardan en el repositorio.
 
 ## Instalación
 
@@ -43,74 +77,56 @@ En Windows:
 
 ```powershell
 .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ```
 
 En macOS o Linux:
 
 ```bash
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ```
 
-## Ejecución
+## Reconstrucción y validación
 
 ```bash
+python -m ruff check .
+python -m pytest
+python scripts/generate_sample_report.py
 streamlit run app.py
 ```
 
-La barra lateral permite cambiar umbrales operativos, número de zonas, distancia máxima y ratio objetivo. Los resultados se recalculan con cada configuración.
+La acción de GitHub ejecuta lint, tests, importación del dashboard y reconstrucción de todos los artefactos de muestra.
 
-## Resultados reproducibles
+## Salidas principales
 
-Para generar un informe sobre la muestra local:
+| Archivo | Contenido |
+|---|---|
+| `reports/sample_snapshot.json` | Métricas del snapshot y resumen del solver. |
+| `reports/sample_station_risk.csv` | Snapshot enriquecido con riesgo, vecindario y zonas. |
+| `reports/sample_quality_checks.csv` | Controles de calidad del snapshot. |
+| `reports/sample_zone_summary.csv` | Diagnóstico agregado por zona KMeans. |
+| `reports/sample_rebalancing.csv` | Plan de transporte de coste mínimo. |
+| `reports/sample_rebalancing_greedy.csv` | Referencia de la heurística greedy original. |
+| `reports/sample_stress_scenarios.csv` | Resultados de pruebas de estrés deterministas. |
+| `reports/figures/operations_decision_dashboard.png` | Panel estático de revisión rápida. |
 
-```bash
-python scripts/generate_sample_report.py
-```
+## Datos y privacidad
 
-Se crean:
+- Fuente en vivo: [CityBikes API para Valenbisi](https://api.citybik.es/v2/networks/valenbisi).
+- La API identifica a JCDecaux como proveedor de la red.
+- La muestra local se incluye solo para reproducibilidad y no contiene datos personales.
 
-- `reports/sample_snapshot.json`
-- `reports/sample_zone_summary.csv`
-- `reports/sample_rebalancing.csv`
+Consulta [data/README.md](data/README.md) antes de reutilizar snapshots o afirmar que describen el estado actual de la red.
 
-Las cifras en vivo varían porque representan el estado de la red en el momento de la consulta.
+## Limitaciones
 
-Con los umbrales por defecto, la muestra reproducible incluida contiene 30 estaciones y 624 plazas. En esa muestra se detectan 21 estaciones críticas y se proponen 8 movimientos candidatos. Estas cifras sirven para validar el pipeline y no describen el estado actual de Valenbisi.
-
-## Tests
-
-```bash
-python -m pip install -r requirements-dev.txt
-ruff check .
-pytest
-```
-
-## Estructura
-
-```text
-.
-├── .github/workflows/ci.yml
-├── app.py
-├── data/sample_valenbisi.csv
-├── docs/
-├── reports/
-├── scripts/generate_sample_report.py
-├── src/valenbisi.py
-└── tests/test_valenbisi.py
-```
-
-## Metodología y limitaciones
-
-El score y la redistribución son heurísticas transparentes de apoyo al análisis. No estiman demanda futura ni sustituyen rutas operativas optimizadas. La metodología, supuestos y limitaciones están detallados en [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
-
-## Datos y licencia
-
-- Fuente: [CityBikes API](https://api.citybik.es/v2/networks/valenbisi).
-- Proveedor indicado por la API: JCDecaux Open Data.
-- Código del proyecto: licencia MIT.
+- Un snapshot no permite aprender patrones temporales ni predecir demanda.
+- Las distancias son geodésicas; no son rutas de vehículo ni tiempos de viaje.
+- El LP no incluye capacidad de furgonetas, turnos, tráfico, costes ni restricciones de calle.
+- KMeans agrupa posiciones para el análisis, no representa barrios administrativos.
+- Las pruebas de estrés conservan stock mediante reglas explícitas, pero no son una simulación de usuarios reales.
 
 ## Autor
 
-Desarrollado por [0227lia](https://github.com/0227lia) como proyecto de portfolio de Ciencia de Datos.
+Proyecto de portfolio de Ciencia de Datos desarrollado por [0227lia](https://github.com/0227lia). Código bajo licencia MIT; los datos conservan las condiciones de sus fuentes.

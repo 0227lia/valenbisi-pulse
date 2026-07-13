@@ -1,64 +1,49 @@
-# Guion para video demo - Valenbisi Pulse
+# Guion para vídeo demo: Valenbisi Pulse
 
-Duracion objetivo: 4 minutos 30 segundos. Maximo permitido: 5 minutos.
+Duración objetivo: 4 minutos y 30 segundos.
 
-## 0:00 - 0:25 Presentacion
+## 0:00 - 0:30 | Presentación
 
-Hola, soy [tu nombre] y este es mi proyecto de EDM: Valenbisi Pulse, una aplicacion interactiva para analizar el estado de las estaciones de Valenbisi en Valencia y proponer acciones de mejora.
+Hola, soy [tu nombre] y este es Valenbisi Pulse, un centro de control de Ciencia de Datos para analizar una fotografía operativa de Valenbisi en Valencia.
 
-El problema urbano que aborda es sencillo: una estacion puede estar vacia y no permitir coger bici, o estar llena y no permitir devolverla. Eso empeora la movilidad ciclista y hace que el servicio sea menos fiable.
+El problema no es solo cuántas bicicletas hay en total: una estación vacía impide empezar un viaje y una estación llena impide terminarlo. La aplicación transforma ese snapshot en riesgo explicable, controles de calidad, un plan de redistribución y pruebas de estrés.
 
-## 0:25 - 0:55 Datos abiertos
+## 0:30 - 1:00 | Datos y alcance
 
-La aplicacion usa datos abiertos en tiempo real de la red Valenbisi a traves de CityBikes, que expone informacion procedente de JCDecaux Open Data.
+La aplicación puede consultar CityBikes, que expone la red de Valenbisi, y también incluye una muestra local para que todo pueda reproducirse sin conexión.
 
-Para cada estacion tengo coordenadas, bicicletas disponibles, anclajes libres, capacidad total y estado operativo. Tambien he incluido una muestra local para que la app siga funcionando si la API falla durante la demo.
+Cada estación aporta posición, bicicletas, anclajes, capacidad y estado operativo. Es importante ser honesto: no tengo histórico de viajes, así que no presento predicciones de demanda. Todo el análisis es sobre el snapshot cargado.
 
-## 0:55 - 1:45 Metodologia DS
+## 1:00 - 1:50 | Metodología
 
-La metodologia tiene varias fases.
+Primero aplico controles de calidad: duplicados, nombres vacíos, coordenadas fuera del área esperada, capacidad e inventario.
 
-Primero, hago ingestion y limpieza de datos: normalizo nombres, direcciones, coordenadas y campos numericos.
+Después calculo ratios de bicicletas y anclajes, desequilibrio y un estado operativo. Sobre eso añado un score de riesgo que combina prioridad de estación, presión del vecindario mediante k vecinos cercanos, aislamiento y desequilibrio.
 
-Despues creo variables derivadas: ratio de bicicletas, ratio de anclajes, indice de desequilibrio y estado de cada estacion.
+También agrupo estaciones con KMeans para obtener zonas analíticas. Estas zonas no son barrios administrativos, pero ayudan a pasar de problemas individuales a una visión de área.
 
-Luego calculo una puntuacion de prioridad de 0 a 100. Esta puntuacion combina tres factores: la criticidad de la estacion, el desequilibrio respecto a un estado ideal y la capacidad de la estacion, porque no es igual fallar en una estacion pequena que en una estacion grande.
+Para redistribución formulo un problema de transporte de coste mínimo. El modelo mueve bicicletas desde estaciones con excedente hacia estaciones con déficit, respeta distancia máxima y penaliza la necesidad que no puede cubrirse. El resultado no es una ruta de furgoneta; es un plan de asignación transparente en bici-kilómetros.
 
-Tambien aplico clustering geoespacial tipo k-means para agrupar estaciones en zonas urbanas y analizar problemas por area, no solo estacion por estacion.
+## 1:50 - 3:35 | Demo
 
-Por ultimo, la app genera recomendaciones de redistribucion: detecta estaciones con exceso de bicicletas y estaciones con deficit, y propone movimientos dentro de una distancia maxima.
+En el centro de control se ven las métricas del snapshot: estaciones, críticas, riesgo alto y controles de calidad. El mapa colorea la banda de riesgo y el gráfico muestra el reparto de estados.
 
-## 1:45 - 3:40 Demo de la app
+En Riesgo local vemos qué estaciones combinan presión del entorno y riesgo alto. La segunda visualización compara las zonas KMeans por proporción crítica y riesgo medio.
 
-En la pantalla principal vemos las metricas globales: numero de estaciones, bicicletas disponibles, anclajes libres, estaciones criticas y ocupacion global.
+En Plan óptimo aparecen las rutas de asignación de bicicleta como líneas sobre el mapa. Arriba se muestran bicicletas asignadas, necesidad cubierta, necesidad no cubierta y bici-kilómetros. Puedo modificar distancia máxima, ratio objetivo y umbral de elegibilidad en la barra lateral, y el solver recalcula el resultado.
 
-En el primer mapa, cada estacion aparece coloreada segun su estado. Podemos filtrar por estaciones sin bicis, sin anclajes o desequilibradas. A la derecha aparece un ranking de estaciones con mayor prioridad.
+En Estrés selecciono un flujo hacia o desde el centro. El escenario conserva bicicletas y recalcula estados, pero el propio panel indica que no es forecasting: no afirma que ese flujo vaya a ocurrir.
 
-Ahora voy a la pestana de zonas prioritarias. Aqui se ven las zonas urbanas generadas por clustering. La tabla resume bicicletas, anclajes, ocupacion y accion recomendada. Esto es util para que un operador no tenga que mirar cientos de puntos sueltos.
+Por último, el buscador devuelve estaciones cercanas para coger o devolver bici y Datos muestra la calidad del snapshot y sus límites.
 
-En la pestana de redistribucion, la aplicacion propone movimientos concretos. Por ejemplo, retirar bicicletas de una estacion llena y llevarlas a otra donde faltan bicicletas. El usuario puede cambiar la distancia maxima y el ratio objetivo para simular distintas politicas.
+## 3:35 - 4:15 | Valor y límites
 
-En el buscador, introduzco una ubicacion y la app devuelve estaciones cercanas para coger o devolver bici. Esto muestra tambien un beneficio directo para usuarios finales.
+El valor del proyecto está en separar una señal operacional útil de una promesa exagerada. Se puede inspeccionar por qué una estación aparece arriba, cuánto déficit cubre un plan y qué supuestos se han usado.
 
-## 3:40 - 4:25 Beneficios
+Para una implantación real añadiría histórico de viajes, rutas de vehículos, capacidad de furgonetas, tráfico, turnos y restricciones de calle. Esas variables están fuera de este repositorio y se documentan como limitaciones.
 
-Los beneficios principales son tres.
+## 4:15 - 4:30 | Cierre
 
-Primero, mejora la experiencia ciudadana, porque ayuda a reducir estaciones vacias o llenas.
-
-Segundo, ayuda a la toma de decisiones operativas, porque prioriza donde actuar y que movimientos realizar.
-
-Tercero, permite explorar escenarios: cambiando los umbrales se puede ver como cambia el numero de estaciones criticas o las rutas de redistribucion.
-
-## 4:25 - 4:45 Cierre
-
-En resumen, Valenbisi Pulse convierte datos abiertos de movilidad en una herramienta practica de diagnostico y recomendacion para una ciudad mas eficiente y sostenible.
+En resumen, Valenbisi Pulse convierte datos públicos de estaciones en un sistema reproducible de diagnóstico y apoyo a la decisión, con resultados verificables y límites explícitos.
 
 Gracias.
-
-## Consejos para grabarlo
-
-- Graba pantalla y voz con OBS, Zoom, PowerPoint o Loom.
-- No intentes explicarlo todo: sigue el guion y ensena solo las pestanas clave.
-- Si vas justo de tiempo, salta el buscador y centra la demo en mapa, zonas y redistribucion.
-- Puedes decir "equipo individual" al inicio si el profesor lo pide.

@@ -1,9 +1,10 @@
-origin,destination,distance_km,bikes_to_move,origin_free_bikes,destination_free_bikes,destination_empty_slots,impact
-Campillo Alto Buey,Avenida De Los Naranjos,1.0,1,9,0,32,1 bicis -> Avenida De Los Naranjos
-Vicente Vidal,Avenida De Los Naranjos,2.07,9,19,0,32,9 bicis -> Avenida De Los Naranjos
-Avenida Constitucion,Avenida Blasco Ibanez,1.87,6,16,0,30,6 bicis -> Avenida Blasco Ibanez
-Avenida Amado Granell,Avenida Blasco Ibanez,2.4,8,18,0,30,8 bicis -> Avenida Blasco Ibanez
-Avenida Peris Y Valero,Hospital Nueva Fe,1.48,9,19,0,30,9 bicis -> Hospital Nueva Fe
-Calle Juan Xxiii,Avenida Blasco Ibanez 3,2.5,7,15,1,39,7 bicis -> Avenida Blasco Ibanez 3
-Avenida Campanar,Avenida Pio Xii,0.8,8,18,2,18,8 bicis -> Avenida Pio Xii
-Conde Torrefiel,Calle Aitana,1.61,6,14,2,14,6 bicis -> Calle Aitana
+origin_id,origin,destination_id,destination,distance_km,bikes_to_move,transport_km_bikes,origin_free_bikes,destination_free_bikes,destination_risk_score
+sample-007,Avenida Peris Y Valero,sample-011,Hospital Nueva Fe,1.479,7,10.35,19,0,88.2
+sample-010,Avenida Amado Granell,sample-011,Hospital Nueva Fe,1.77,8,14.162,18,0,88.2
+sample-007,Avenida Peris Y Valero,sample-030,Colon Ii,1.151,2,2.303,19,0,84.5
+sample-002,Avenida Constitucion,sample-030,Colon Ii,2.001,6,12.006,16,0,84.5
+sample-020,Vicente Vidal,sample-030,Colon Ii,2.303,4,9.213,19,0,84.5
+sample-020,Vicente Vidal,sample-004,Cirilo Amoros,1.952,5,9.758,19,0,82.6
+sample-001,Calle Juan Xxiii,sample-006,Avenida Blasco Ibanez 3,2.497,7,17.482,15,1,80.2
+sample-022,Conde Torrefiel,sample-023,Calle Aitana,1.607,6,9.644,14,2,48.3
+sample-027,Avenida Campanar,sample-013,Avenida Pio Xii,0.795,8,6.362,18,2,37.1

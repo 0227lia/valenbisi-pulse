@@ -6,6 +6,18 @@
   "free_docks": 361,
   "critical_stations": 21,
   "estimated_zones": 7,
-  "recommended_movements": 8,
+  "quality_checks_requiring_review": 0,
+  "minimum_cost_rebalancing": {
+    "eligible_sources": 7,
+    "eligible_destinations": 14,
+    "eligible_arcs": 49,
+    "total_supply": 53,
+    "total_need": 152,
+    "bikes_moved": 53,
+    "unmet_need": 99,
+    "service_share": 0.34868421052631576,
+    "transport_km_bikes": 91.27999999999999,
+    "solver_objective": 8706.97904759175
+  },
   "scope": "Muestra local determinista; los valores en vivo cambian con cada consulta a la API."
 }

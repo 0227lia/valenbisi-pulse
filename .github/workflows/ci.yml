@@ -29,3 +29,9 @@ jobs:
 
       - name: Test
         run: pytest
+
+      - name: Validate dashboard module
+        run: python -c "import app; print('Dashboard module imported')"
+
+      - name: Rebuild offline sample artifacts
+        run: python scripts/generate_sample_report.py
