@@ -1,0 +1,8 @@
+check,count,type,status
+Estaciones cargadas,30,informativo,ok
+IDs duplicados,0,revisar,ok
+Nombres vacíos,0,revisar,ok
+Coordenadas fuera del área esperada,0,revisar,ok
+Capacidad no positiva,0,revisar,ok
+Inventario por encima de capacidad,0,revisar,ok
+Estaciones no operativas,0,observación,ok
