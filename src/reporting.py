@@ -7,14 +7,16 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.patches import Rectangle
 
-INK = "#172033"
-MUTED = "#64748B"
-GRID = "#DCE3EA"
+INK = "#0B2130"
+MUTED = "#597181"
+GRID = "#D6E0E5"
 TEAL = "#0F766E"
-CORAL = "#E85D4A"
-GOLD = "#D97706"
-BLUE = "#2563EB"
+CORAL = "#E85D45"
+GOLD = "#D28A1E"
+BLUE = "#2F6BFF"
+PAPER = "#F4F7F6"
 
 RISK_COLORS = {
     "bajo": "#94A3B8",
@@ -37,7 +39,7 @@ def _apply_style() -> None:
             "axes.edgecolor": GRID,
             "axes.spines.top": False,
             "axes.spines.right": False,
-            "figure.facecolor": "white",
+            "figure.facecolor": PAPER,
             "axes.facecolor": "white",
         }
     )
@@ -45,7 +47,7 @@ def _apply_style() -> None:
 
 def _save(fig: plt.Figure, directory: Path, filename: str) -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    fig.savefig(directory / filename, dpi=190, bbox_inches="tight", facecolor="white")
+    fig.savefig(directory / filename, dpi=190, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
@@ -73,9 +75,23 @@ def plot_operations_dashboard(
     figure_dir: Path,
 ) -> None:
     _apply_style()
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10.5))
+    fig = plt.figure(figsize=(16, 9), dpi=170, facecolor=PAPER)
+    grid = fig.add_gridspec(
+        2,
+        2,
+        left=0.065,
+        right=0.97,
+        top=0.61,
+        bottom=0.105,
+        hspace=0.48,
+        wspace=0.34,
+    )
+    axes = [
+        [fig.add_subplot(grid[0, 0]), fig.add_subplot(grid[0, 1])],
+        [fig.add_subplot(grid[1, 0]), fig.add_subplot(grid[1, 1])],
+    ]
 
-    ax = axes[0, 0]
+    ax = axes[0][0]
     _draw_plan_lines(ax, stations, plan)
     for risk_band, frame in stations.groupby("risk_band", observed=True):
         ax.scatter(
@@ -94,7 +110,7 @@ def plot_operations_dashboard(
     ax.set_ylabel("Latitud")
     ax.legend(frameon=False, ncol=2, fontsize=8)
 
-    ax = axes[0, 1]
+    ax = axes[0][1]
     top = stations.nlargest(12, "station_risk_score").sort_values("station_risk_score")
     bars = ax.barh(top["name"], top["station_risk_score"], color=CORAL)
     for bar, pressure in zip(bars, top["local_pressure"], strict=True):
@@ -112,7 +128,7 @@ def plot_operations_dashboard(
     ax.grid(axis="x", color=GRID, linewidth=0.7)
     ax.set_axisbelow(True)
 
-    ax = axes[1, 0]
+    ax = axes[1][0]
     scatter = ax.scatter(
         zones["critical_share"],
         zones["mean_station_risk"],
@@ -139,7 +155,7 @@ def plot_operations_dashboard(
     ax.grid(color=GRID, linewidth=0.7)
     ax.set_axisbelow(True)
 
-    ax = axes[1, 1]
+    ax = axes[1][1]
     display = stress_scenarios.copy()
     labels = ["Base", *display["scenario"].tolist()]
     critical_values = [
@@ -155,24 +171,63 @@ def plot_operations_dashboard(
     ax.grid(axis="y", color=GRID, linewidth=0.7)
     ax.set_axisbelow(True)
 
-    fig.suptitle(
-        "Valenbisi Pulse | panel de operaciones de snapshot",
-        x=0.075,
-        ha="left",
-        fontsize=17,
+    critical_count = int(stations["risk_band"].eq("crítico").sum())
+    bikes_to_move = int(plan["bikes_to_move"].sum()) if not plan.empty else 0
+    baseline_critical = int(display["baseline_critical_stations"].iloc[0])
+    best_critical = int(display["scenario_critical_stations"].min())
+    kpis = [
+        ("ESTACIONES", f"{len(stations)}", "snapshot reproducible"),
+        ("RIESGO CRÍTICO", f"{critical_count}", "diagnóstico puntual"),
+        ("PLAN OPTIMIZADO", f"{bikes_to_move}", "bicicletas modeladas"),
+        ("MEJOR ESTRÉS", f"-{baseline_critical - best_critical}", "estaciones críticas"),
+    ]
+    card_width = 0.205
+    for index, (label, value, note) in enumerate(kpis):
+        left = 0.065 + index * 0.225
+        fig.patches.append(
+            Rectangle(
+                (left, 0.665),
+                card_width,
+                0.115,
+                transform=fig.transFigure,
+                facecolor="white",
+                edgecolor=GRID,
+                linewidth=0.8,
+            )
+        )
+        fig.text(left + 0.012, 0.748, label, color=TEAL, fontsize=8, weight="bold")
+        fig.text(left + 0.012, 0.704, value, color=INK, fontsize=18, weight="bold")
+        fig.text(left + 0.012, 0.68, note, color=MUTED, fontsize=7.5)
+
+    fig.text(0.065, 0.945, "VALENBISI PULSE", color=TEAL, fontsize=10, weight="bold")
+    fig.text(
+        0.065,
+        0.885,
+        "Decisiones operativas con supuestos explícitos",
+        color=INK,
+        fontsize=24,
         weight="bold",
     )
     fig.text(
-        0.075,
-        0.012,
+        0.065,
+        0.842,
         (
-            "Muestra local reproducible. Riesgo y estrés son diagnósticos de snapshot, "
-            "no predicciones de demanda ni rutas reales."
+            "Riesgo local, optimización de rebalanceo, segmentación territorial "
+            "y pruebas de estrés sobre un snapshot."
         ),
         color=MUTED,
-        fontsize=9,
+        fontsize=11,
     )
-    fig.tight_layout(rect=(0, 0.03, 1, 0.96))
+    fig.text(
+        0.065,
+        0.04,
+        (
+            "Muestra local reproducible. Riesgo y estrés son diagnósticos del snapshot; "
+            "el plan no representa demanda futura ni rutas reales."
+        ),
+        color=MUTED,
+        fontsize=8.5,
+    )
     _save(fig, figure_dir, "operations_decision_dashboard.png")
 
 
